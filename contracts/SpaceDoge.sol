@@ -239,39 +239,6 @@ contract Ownable {
     }
 }
 
-library Address {
-    function isContract(address account) internal view returns (bool) {
-        bytes32 codehash;
-        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
-        // solhint-disable-next-line no-inline-assembly
-        assembly {
-            codehash := extcodehash(account)
-        }
-        return (codehash != 0x0 && codehash != accountHash);
-    }
-}
-
-contract UsdtWrap {
-    IERC20 public token520;
-    IERC20 public usdt;
-
-    constructor(IERC20 _token520) {
-        token520 = _token520;
-        usdt = IERC20(0x55d398326f99059fF775485246999027B3197955);
-    }
-
-    function withdraw() public {
-        uint256 usdtBalance = usdt.balanceOf(address(this));
-        if (usdtBalance > 0) {
-            usdt.transfer(address(token520), usdtBalance);
-        }
-        uint256 token520Balance = token520.balanceOf(address(this));
-        if (token520Balance > 0) {
-            token520.transfer(address(token520), token520Balance);
-        }
-    }
-}
-
 contract ERC20 is Ownable, IERC20 {
     using SafeMath for uint256;
 
@@ -949,29 +916,12 @@ contract SpaceDoge is ERC20 {
     IUniswapV2Router02 public uniswapV2Router;
     IUniswapV2Pair public uniswapV2Pair;
     address _tokenOwner;
-    address private marketAddress;
-    address public teamAddress;
     mapping(address => bool) private _isExcludedFromFees;
-    bool public swapAndLiquifyEnabled = true;
-    bool private swapping = false;
-    bool public swapstatus;
-    bool public checkWalletLimit = true;
 
     uint256 public lpFee = 20;
-    uint256 public marketFee = 20;
-    uint256 public totalFee = lpFee + marketFee;
-
     uint256 public feeAmount = 0;
-    uint256 public feeTokenAmount = 0;
-
-    uint256 public lpDivTokenAmount = 0;
-    uint256 public lpDivThresAmount = 0;
     uint256 public oneDividendNum = 50;
-    uint256 public _walletMax = 3 * 10**18;
-
-    IERC20 public usdt = IERC20(0x55d398326f99059fF775485246999027B3197955);
     IERC20 public deadAddress = IERC20(0x000000000000000000000000000000000000dEaD);
-    IERC20 public lpToken;
     address[] private lpUser;
     mapping(address => bool) public lpPush;
     mapping(address => uint256) private lpIndex;
@@ -979,50 +929,31 @@ contract SpaceDoge is ERC20 {
     mapping(address => bool) private _bexAddress;
     mapping(address => uint256) private _exIndex;
     mapping(address => bool) public ammPairs;
-    mapping(address => bool) public whitelist;
     mapping(address => bool) public _isBlacklisted;
-    mapping(address => bool) public isWalletLimitExempt;
 
     address public lastAddress = address(0);
     uint256 private lpPos = 0;
     uint256 private lpTokenDivThres;
     uint256 private divLpHolderAmount;
-    UsdtWrap RECV;
 
     event ExcludeFromFees(address indexed account, bool isExcluded);
-    event WhitelistMultipleAddresses(address[] accounts, bool value);
     event BlacklistMultipleAddresses(address[] accounts, bool value);
     event SwapAndLiquify(uint256 tokensSwapped, uint256 ethReceived);
 
     constructor() ERC20("Diamond", "DMD") {
         uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
         // Create a uniswap pair for this new token
-        _tokenOwner = address(0x74801Ad82DFE51Be99890D78d032be59446b62c9);
-        marketAddress = address(0x07937698579A18D1e7708b55029768827bf63bf1);
-        teamAddress = address(0x96C035f5B12f50D83C6277D18664fCF1bF838aae);
+        _tokenOwner = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
         uniswapV2Pair = IUniswapV2Pair(
-            IUniswapV2Factory(uniswapV2Router.factory()).createPair(address(this), address(usdt))
-        );
-        IUniswapV2Pair uniswapV2PairBNB = IUniswapV2Pair(
             IUniswapV2Factory(uniswapV2Router.factory()).createPair(
                 address(this),
                 uniswapV2Router.WETH()
             )
         );
         ammPairs[address(uniswapV2Pair)] = true;
-        ammPairs[address(uniswapV2PairBNB)] = true;
-        isWalletLimitExempt[address(uniswapV2Pair)] = true;
-        isWalletLimitExempt[address(this)] = true;
-        isWalletLimitExempt[_tokenOwner] = true;
-        isWalletLimitExempt[address(deadAddress)] = true;
-        _approve(address(this), address(uniswapV2Router), ~uint256(0));
         excludeFromFees(_tokenOwner, true);
         excludeFromFees(address(this), true);
         excludeFromFees(address(uniswapV2Router), true);
-        excludeFromFees(marketAddress, true);
-        excludeFromFees(teamAddress, true);
-        lpToken = usdt;
-        RECV = new UsdtWrap(IERC20(address(this)));
         _mint(_tokenOwner, 100 * 10**18);
         divLpHolderAmount = 1 * 10**16;
         lpTokenDivThres = 60 * 10**18;
@@ -1030,34 +961,16 @@ contract SpaceDoge is ERC20 {
 
     receive() external payable {}
 
-    function setFees(uint256 _lpFee, uint256 _marketFee) external onlyOwner {
+    function setFees(uint256 _lpFee) external onlyOwner {
         lpFee = _lpFee;
-        marketFee = _marketFee;
-        totalFee = lpFee + marketFee;
     }
 
     function setlpDivThres(uint256 _thres) public onlyOwner {
         lpTokenDivThres = _thres;
     }
 
-    function setSwapStatus(bool status) public onlyOwner {
-        swapstatus = status;
-    }
-
     function setDivLpHolderAmount(uint256 amount) public onlyOwner {
         divLpHolderAmount = amount;
-    }
-
-    function enableDisableWalletLimit(bool newValue) external onlyOwner {
-        checkWalletLimit = newValue;
-    }
-
-    function setIsWalletLimitExempt(address holder, bool exempt) external onlyOwner {
-        isWalletLimitExempt[holder] = exempt;
-    }
-
-    function setWalletLimit(uint256 newLimit) external onlyOwner {
-        _walletMax = newLimit;
     }
 
     function excludeFromFees(address account, bool excluded) public onlyOwner {
@@ -1067,21 +980,6 @@ contract SpaceDoge is ERC20 {
 
     function setAmmPairs(address pair, bool isPair) public onlyOwner {
         ammPairs[pair] = isPair;
-    }
-
-    function whitelistMultipleAddresses(address[] calldata accounts, bool value)
-        external
-        onlyOwner
-    {
-        for (uint256 i = 0; i < accounts.length; i++) {
-            whitelist[accounts[i]] = value;
-        }
-
-        emit WhitelistMultipleAddresses(accounts, value);
-    }
-
-    function setWhitelist(address account, bool value) public onlyOwner {
-        whitelist[account] = value;
     }
 
     function blacklistMultipleAddresses(address[] calldata accounts, bool value)
@@ -1108,7 +1006,6 @@ contract SpaceDoge is ERC20 {
             ) {
                 _clrLpDividend(lpAddresses[i]);
             } else if (
-                !Address.isContract(lpAddresses[i]) &&
                 !lpPush[lpAddresses[i]] &&
                 !_bexAddress[lpAddresses[i]] &&
                 uniswapV2Pair.balanceOf(lpAddresses[i]) >= divLpHolderAmount
@@ -1154,14 +1051,6 @@ contract SpaceDoge is ERC20 {
         lpUser.push(lpAddress);
     }
 
-    function setSwapAndLiquifyEnabled(bool _enabled) public onlyOwner {
-        swapAndLiquifyEnabled = _enabled;
-    }
-
-    function setTeamAddress(address payable newWallet) external onlyOwner {
-        teamAddress = newWallet;
-    }
-
     function isExcludedFromFees(address account) public view returns (bool) {
         return _isExcludedFromFees[account];
     }
@@ -1174,57 +1063,22 @@ contract SpaceDoge is ERC20 {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(!_isBlacklisted[from] && !_isBlacklisted[to], "Blacklisted address");
-        if ((ammPairs[from] || ammPairs[to]) && swapstatus == false) {
-            require(whitelist[from] || whitelist[to], "only whitelist!");
-        }
 
-        if (
-            uniswapV2Pair.totalSupply() > 0 &&
-            balanceOf(address(this)) > balanceOf(address(uniswapV2Pair)).div(10000) &&
-            to == address(uniswapV2Pair)
-        ) {
-            if (
-                !swapping &&
-                _tokenOwner != from &&
-                _tokenOwner != to &&
-                !ammPairs[from] &&
-                !(from == address(uniswapV2Router) && !ammPairs[to]) &&
-                swapAndLiquifyEnabled
-            ) {
-                swapping = true;
-                swapProc();
-                swapping = false;
-            }
-        }
-
-        if (ammPairs[to]) {
-            uint256 balance = balanceOf(from);
-            if (amount == balance) {
-                amount = amount.sub(amount.div(1000));
-            }
-        }
-
-        bool takeFee = !swapping;
+        bool takeFee = true;
 
         if (_isExcludedFromFees[from] || _isExcludedFromFees[to]) {
             takeFee = false;
         } else {
-            if ((!ammPairs[from] && !ammPairs[to])) {
+            if ((!ammPairs[to])) {
                 takeFee = false;
             }
-            if (!ammPairs[from]) amount = amount.mul(999).div(1000);
         }
         if (takeFee) {
-            if (ammPairs[to] || ammPairs[from]) {
-                uint256 share = amount.div(1000);
-                super._transfer(from, address(this), share.mul(totalFee));
-                feeAmount = feeAmount.add(share.mul(totalFee));
-                amount = amount.sub(share.mul(totalFee));
-            }
+            uint256 share = amount.div(1000);
+            super._transfer(from, address(this), share.mul(lpFee));
+            feeAmount = feeAmount.add(share.mul(lpFee));
+            amount = amount.sub(share.mul(lpFee));
         }
-
-        if (checkWalletLimit && !isWalletLimitExempt[to])
-            require(balanceOf(to).add(amount) <= _walletMax);
 
         super._transfer(from, to, amount);
 
@@ -1241,46 +1095,14 @@ contract SpaceDoge is ERC20 {
             lastAddress = address(0);
             lpDividendProc(addrs);
         }
+
         if (ammPairs[to]) {
             lastAddress = from;
         }
 
-        if (!swapping && _tokenOwner != from && _tokenOwner != to) {
+        if (_tokenOwner != from && _tokenOwner != to) {
             _splitlpToken();
         }
-    }
-
-    function swapProc() public {
-        uint256 canSellAmount = feeAmount.sub(feeTokenAmount);
-        uint256 amountT = balanceOf(address(uniswapV2Pair)).div(10000);
-        if (balanceOf(address(this)) >= canSellAmount && canSellAmount >= amountT) {
-            if (canSellAmount >= amountT.mul(300)) canSellAmount = amountT.mul(300);
-            feeTokenAmount = feeTokenAmount.add(canSellAmount);
-            uint256 beforeBal = IERC20(usdt).balanceOf(address(this));
-            swapTokensForUSDT(canSellAmount);
-            uint256 newBal = IERC20(usdt).balanceOf(address(this)).sub(beforeBal);
-            uint256 marketAmount = newBal.mul(marketFee).div(marketFee + lpFee);
-            IERC20(usdt).transfer(marketAddress, marketAmount.div(2));
-            IERC20(usdt).transfer(teamAddress, marketAmount.div(2));
-            lpDivTokenAmount = IERC20(usdt).balanceOf(address(this));
-        }
-    }
-
-    function swapTokensForUSDT(uint256 tokenAmount) private {
-        // generate the uniswap pair path of token -> weth
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = address(usdt);
-        // make the swap
-        uniswapV2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
-            tokenAmount,
-            0, // accept any amount of ETH
-            path,
-            address(RECV),
-            block.timestamp
-        );
-
-        RECV.withdraw();
     }
 
     function rescueToken(address tokenAddress, uint256 tokens)
@@ -1292,7 +1114,7 @@ contract SpaceDoge is ERC20 {
     }
 
     function _splitlpToken() private {
-        uint256 thisAmount = lpDivTokenAmount;
+        uint256 thisAmount = feeAmount;
         if (thisAmount < lpTokenDivThres) return;
         if (lpPos >= lpUser.length) lpPos = 0;
         if (lpUser.length > 0) {
@@ -1321,14 +1143,14 @@ contract SpaceDoge is ERC20 {
                 if (uniswapV2Pair.balanceOf(user) >= divLpHolderAmount) {
                     dAmount = uniswapV2Pair.balanceOf(user).mul(thisAmount).div(totalAmount);
                     if (dAmount > 0) {
-                        lpToken.transfer(user, dAmount);
+                        _transferToken(address(this), user, dAmount);
                         resDivAmount = resDivAmount.sub(dAmount);
                     }
                 }
             }
         }
         lpPos = (lpPos + num).mod(lpUser.length);
-        lpDivTokenAmount = resDivAmount;
+        feeAmount = resDivAmount;
     }
 
     function getlpsize() public view returns (uint256) {

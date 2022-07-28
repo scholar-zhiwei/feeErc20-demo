@@ -31,7 +31,7 @@ describe('Initial', async function () {
       params: [
         {
           forking: {
-            jsonRpcUrl: 'https://bsc-dataseed.binance.org/',
+            jsonRpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545/',
             // blockNumber: 19849581,
           },
         },
@@ -55,10 +55,10 @@ describe('Initial', async function () {
     before('', async function () {
       console.log('owner.address', owner.address)
       const f = await ethers.getContractFactory('SpaceDoge', owner.address)
-      token = (await f.deploy('0x10ED43C718714eb63d5aA57B78B54704E256024E')) as SpaceDoge
+      token = (await f.deploy('0xD99D1c33F9fC3444f8101754aBC46c52416550D1')) as SpaceDoge
       console.log('token address: ', token.address)
       console.log('token balance: ', formatUnits(await token.balanceOf(owner.address)))
-      router = await ethers.getContractAt(abi, '0x10ED43C718714eb63d5aA57B78B54704E256024E', owner)
+      router = await ethers.getContractAt(abi, '0xD99D1c33F9fC3444f8101754aBC46c52416550D1', owner)
       const WETH = await router.WETH()
       weth = await ethers.getContractAt('SpaceDoge', WETH, owner)
       pair = await ethers.getContractAt('SpaceDoge', await token.uniswapV2Pair(), owner)

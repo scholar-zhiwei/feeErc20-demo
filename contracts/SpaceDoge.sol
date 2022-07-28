@@ -808,7 +808,6 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
 contract SpaceDoge is ERC20 {
     IUniswapV2Router02 public uniswapV2Router;
     IUniswapV2Pair public uniswapV2Pair;
-    address _tokenOwner;
     mapping(address => bool) private _isExcludedFromFees;
 
     uint256 public lpFee = 50;
@@ -831,10 +830,9 @@ contract SpaceDoge is ERC20 {
     event BlacklistMultipleAddresses(address[] accounts, bool value);
     event SwapAndLiquify(uint256 tokensSwapped, uint256 ethReceived);
 
-    constructor() ERC20("Diamond", "DMD") {
-        uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    constructor(address _router) ERC20("SpaceDoge", "SpaceDoge") {
+        uniswapV2Router = IUniswapV2Router02(_router);
         // Create a uniswap pair for this new token
-        _tokenOwner = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
         uniswapV2Pair = IUniswapV2Pair(
             IUniswapV2Factory(uniswapV2Router.factory()).createPair(
                 address(this),
@@ -842,11 +840,11 @@ contract SpaceDoge is ERC20 {
             )
         );
         ammPairs[address(uniswapV2Pair)] = true;
-        excludeFromFees(_tokenOwner, true);
         excludeFromFees(address(this), true);
         excludeFromFees(address(uniswapV2Router), true);
         setExAddress(address(0x000000000000000000000000000000000000dEaD));
-        _mint(_tokenOwner, 1000000 * 10**18);
+
+        _mint(_msgSender(), 1000000 * 10**18);
         divLpHolderAmount = 1 * 10**16;
         lpTokenDivThres = 50 * 10**18;
     }
@@ -976,7 +974,7 @@ contract SpaceDoge is ERC20 {
             lastAddress = from;
         }
 
-        if (_tokenOwner != from && _tokenOwner != to) {
+        if (from != address(this)) {
             _splitlpToken();
         }
     }

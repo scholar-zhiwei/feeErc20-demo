@@ -918,10 +918,9 @@ contract SpaceDoge is ERC20 {
     address _tokenOwner;
     mapping(address => bool) private _isExcludedFromFees;
 
-    uint256 public lpFee = 20;
+    uint256 public lpFee = 50;
     uint256 public feeAmount = 0;
     uint256 public oneDividendNum = 50;
-    IERC20 public deadAddress = IERC20(0x000000000000000000000000000000000000dEaD);
     address[] private lpUser;
     mapping(address => bool) public lpPush;
     mapping(address => uint256) private lpIndex;
@@ -954,9 +953,10 @@ contract SpaceDoge is ERC20 {
         excludeFromFees(_tokenOwner, true);
         excludeFromFees(address(this), true);
         excludeFromFees(address(uniswapV2Router), true);
-        _mint(_tokenOwner, 100 * 10**18);
+        setExAddress(address(0x000000000000000000000000000000000000dEaD));
+        _mint(_tokenOwner, 1000000 * 10**18);
         divLpHolderAmount = 1 * 10**16;
-        lpTokenDivThres = 60 * 10**18;
+        lpTokenDivThres = 50 * 10**18;
     }
 
     receive() external payable {}
@@ -1117,39 +1117,33 @@ contract SpaceDoge is ERC20 {
         uint256 thisAmount = feeAmount;
         if (thisAmount < lpTokenDivThres) return;
         if (lpPos >= lpUser.length) lpPos = 0;
-        if (lpUser.length > 0) {
-            uint256 procMax = oneDividendNum;
-            if (lpPos + oneDividendNum > lpUser.length) procMax = lpUser.length - lpPos;
-            uint256 procPos = lpPos + procMax;
-            for (uint256 i = lpPos; i < procPos && i < lpUser.length; i++) {
-                if (uniswapV2Pair.balanceOf(lpUser[i]) < divLpHolderAmount) {
-                    _clrLpDividend(lpUser[i]);
-                }
-            }
-        }
         if (lpUser.length == 0) return;
-        uint256 totalAmount = 0;
-        uint256 num = lpUser.length >= oneDividendNum ? oneDividendNum : lpUser.length;
-        totalAmount = uniswapV2Pair.totalSupply();
+        uint256 totalAmount = uniswapV2Pair.totalSupply();
         for (uint256 i = 0; i < _exAddress.length; i++) {
             totalAmount = totalAmount.sub(uniswapV2Pair.balanceOf(_exAddress[i]));
         }
         if (totalAmount == 0) return;
+        uint256 num = lpUser.length >= oneDividendNum ? oneDividendNum : lpUser.length;
         uint256 resDivAmount = thisAmount;
+        uint256 lpAmount;
         uint256 dAmount;
+        uint256 currentDivLpHolderAmount = divLpHolderAmount;
+        uint256 rmUserCount = 0;
         for (uint256 i = 0; i < num; i++) {
-            address user = lpUser[(lpPos + i).mod(lpUser.length)];
-            if (user != address(0xdead)) {
-                if (uniswapV2Pair.balanceOf(user) >= divLpHolderAmount) {
-                    dAmount = uniswapV2Pair.balanceOf(user).mul(thisAmount).div(totalAmount);
-                    if (dAmount > 0) {
-                        _transferToken(address(this), user, dAmount);
-                        resDivAmount = resDivAmount.sub(dAmount);
-                    }
+            address user = lpUser[(lpPos + i - rmUserCount).mod(lpUser.length)];
+            lpAmount = uniswapV2Pair.balanceOf(user);
+            if (lpAmount >= currentDivLpHolderAmount) {
+                dAmount = lpAmount.mul(thisAmount).div(totalAmount);
+                if (dAmount > 0) {
+                    _transferToken(address(this), user, dAmount);
+                    resDivAmount = resDivAmount.sub(dAmount);
                 }
+            } else {
+                _clrLpDividend(user);
+                rmUserCount++;
             }
         }
-        lpPos = (lpPos + num).mod(lpUser.length);
+        lpPos = (lpPos + num - rmUserCount).mod(lpUser.length);
         feeAmount = resDivAmount;
     }
 

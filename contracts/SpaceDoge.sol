@@ -812,7 +812,6 @@ contract SpaceDoge is ERC20 {
 
     uint256 public lpFee = 50;
     uint256 public feeAmount = 0;
-    uint256 public oneDividendNum = 50;
     address[] private lpUser;
     mapping(address => bool) public lpPush;
     mapping(address => uint256) private lpIndex;
@@ -823,13 +822,15 @@ contract SpaceDoge is ERC20 {
 
     address public lastAddress = address(0);
     uint256 private lpPos = 0;
-    uint256 private lpTokenDivThres;
-    uint256 private divLpHolderAmount;
+
+    uint256 public oneDividendNum = 50;
+    uint256 private divLpHolderAmount = 1 * 10**16;
+    uint256 private lpTokenDivThres = 50 * 10**18;
 
     event ExcludeFromFees(address indexed account, bool isExcluded);
 
-    constructor(address _router) ERC20("SpaceDoge", "SpaceDoge") {
-        uniswapV2Router = IUniswapV2Router02(_router);
+    constructor(address router_, uint256 totalSupply_) ERC20("SpaceDoge", "SpaceDoge") {
+        uniswapV2Router = IUniswapV2Router02(router_);
         uniswapV2Pair = IUniswapV2Pair(
             IUniswapV2Factory(uniswapV2Router.factory()).createPair(
                 address(this),
@@ -840,9 +841,7 @@ contract SpaceDoge is ERC20 {
         excludeFromFees(address(this), true);
         setExAddress(address(0x000000000000000000000000000000000000dEaD));
 
-        divLpHolderAmount = 1 * 10**16;
-        lpTokenDivThres = 50 * 10**18;
-        _mint(_msgSender(), 1000000 * 10**18);
+        _mint(_msgSender(), totalSupply_);
     }
 
     receive() external payable {}

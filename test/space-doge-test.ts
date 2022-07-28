@@ -55,7 +55,8 @@ describe('Initial', async function () {
     before('', async function () {
       console.log('owner.address', owner.address)
       const f = await ethers.getContractFactory('SpaceDoge', owner.address)
-      token = (await f.deploy('0xD99D1c33F9fC3444f8101754aBC46c52416550D1')) as SpaceDoge
+      const totalSupply = parseUnits('100000000')
+      token = (await f.deploy('0xD99D1c33F9fC3444f8101754aBC46c52416550D1', totalSupply)) as SpaceDoge
       console.log('token address: ', token.address)
       console.log('token balance: ', formatUnits(await token.balanceOf(owner.address)))
       router = await ethers.getContractAt(abi, '0xD99D1c33F9fC3444f8101754aBC46c52416550D1', owner)

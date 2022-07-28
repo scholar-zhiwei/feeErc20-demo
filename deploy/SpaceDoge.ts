@@ -1,3 +1,4 @@
+import { parseUnits } from 'ethers/lib/utils'
 import { DeployFunction } from 'hardhat-deploy/types'
 import { HardhatRuntimeEnvironment } from 'hardhat/types'
 
@@ -9,13 +10,15 @@ const deployFunction: DeployFunction = async function ({ deployments, getNamedAc
   console.log('Deployer:', deployer)
   console.log('router:', router)
 
+  const totalSupply = parseUnits('100000000')
+
   const { address } = await deploy('SpaceDoge', {
     from: deployer,
     log: true,
     deterministicDeployment: false,
     skipIfAlreadyDeployed: false,
     // waitConfirmations: 3,
-    args: [router],
+    args: [router, totalSupply],
   })
 
   console.log('SpaceDoge deployed at ', address)

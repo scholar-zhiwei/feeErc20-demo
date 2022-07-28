@@ -3,6 +3,7 @@ import { task } from 'hardhat/config'
 import { NomicLabsHardhatPluginError } from 'hardhat/plugins'
 
 task('verify:all', 'Verify all contracts', async (_, { ethers, run, getNamedAccounts }) => {
+  const totalSupply = parseUnits('100000000')
   const { router } = await getNamedAccounts()
   const token = await ethers.getContract('SpaceDoge')
   const contracts: {
@@ -13,7 +14,7 @@ task('verify:all', 'Verify all contracts', async (_, { ethers, run, getNamedAcco
     {
       name: 'SpaceDoge',
       address: token.address,
-      constructorArguments: [router],
+      constructorArguments: [router, totalSupply.toString()],
     },
   ]
 

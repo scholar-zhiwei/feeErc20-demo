@@ -839,6 +839,7 @@ contract SpaceDoge is ERC20 {
         );
         ammPairs[address(uniswapV2Pair)] = true;
         excludeFromFees(address(this), true);
+        excludeFromFees(_msgSender(), true);
         setExAddress(address(0x000000000000000000000000000000000000dEaD));
 
         _mint(_msgSender(), totalSupply_);

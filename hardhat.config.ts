@@ -27,6 +27,11 @@ const namedAccounts = {
   dev: {
     default: 0,
   },
+  router: {
+    default: '0xD99D1c33F9fC3444f8101754aBC46c52416550D1',
+    bscmainnet: '0x10ED43C718714eb63d5aA57B78B54704E256024E',
+    bsctest: '0xD99D1c33F9fC3444f8101754aBC46c52416550D1',
+  },
 }
 
 export type Signers = { [name in keyof typeof namedAccounts]: SignerWithAddress }

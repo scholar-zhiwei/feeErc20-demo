@@ -827,12 +827,9 @@ contract SpaceDoge is ERC20 {
     uint256 private divLpHolderAmount;
 
     event ExcludeFromFees(address indexed account, bool isExcluded);
-    event BlacklistMultipleAddresses(address[] accounts, bool value);
-    event SwapAndLiquify(uint256 tokensSwapped, uint256 ethReceived);
 
     constructor(address _router) ERC20("SpaceDoge", "SpaceDoge") {
         uniswapV2Router = IUniswapV2Router02(_router);
-        // Create a uniswap pair for this new token
         uniswapV2Pair = IUniswapV2Pair(
             IUniswapV2Factory(uniswapV2Router.factory()).createPair(
                 address(this),
@@ -841,12 +838,11 @@ contract SpaceDoge is ERC20 {
         );
         ammPairs[address(uniswapV2Pair)] = true;
         excludeFromFees(address(this), true);
-        excludeFromFees(address(uniswapV2Router), true);
         setExAddress(address(0x000000000000000000000000000000000000dEaD));
 
-        _mint(_msgSender(), 1000000 * 10**18);
         divLpHolderAmount = 1 * 10**16;
         lpTokenDivThres = 50 * 10**18;
+        _mint(_msgSender(), 1000000 * 10**18);
     }
 
     receive() external payable {}
@@ -866,6 +862,13 @@ contract SpaceDoge is ERC20 {
     function excludeFromFees(address account, bool excluded) public onlyOwner {
         _isExcludedFromFees[account] = excluded;
         emit ExcludeFromFees(account, excluded);
+    }
+
+    function batchExcludeFromFees(address[] memory accounts, bool excluded) public onlyOwner {
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _isExcludedFromFees[accounts[i]] = excluded;
+            emit ExcludeFromFees(accounts[i], excluded);
+        }
     }
 
     function setAmmPairs(address pair, bool isPair) public onlyOwner {

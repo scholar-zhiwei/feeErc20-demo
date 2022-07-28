@@ -928,7 +928,6 @@ contract SpaceDoge is ERC20 {
     mapping(address => bool) private _bexAddress;
     mapping(address => uint256) private _exIndex;
     mapping(address => bool) public ammPairs;
-    mapping(address => bool) public _isBlacklisted;
 
     address public lastAddress = address(0);
     uint256 private lpPos = 0;
@@ -980,21 +979,6 @@ contract SpaceDoge is ERC20 {
 
     function setAmmPairs(address pair, bool isPair) public onlyOwner {
         ammPairs[pair] = isPair;
-    }
-
-    function blacklistMultipleAddresses(address[] calldata accounts, bool value)
-        external
-        onlyOwner
-    {
-        for (uint256 i = 0; i < accounts.length; i++) {
-            _isBlacklisted[accounts[i]] = value;
-        }
-
-        emit BlacklistMultipleAddresses(accounts, value);
-    }
-
-    function blacklistAddress(address account, bool value) external onlyOwner {
-        _isBlacklisted[account] = value;
     }
 
     function lpDividendProc(address[] memory lpAddresses) private {
@@ -1062,7 +1046,6 @@ contract SpaceDoge is ERC20 {
     ) internal override {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
-        require(!_isBlacklisted[from] && !_isBlacklisted[to], "Blacklisted address");
 
         bool takeFee = true;
 

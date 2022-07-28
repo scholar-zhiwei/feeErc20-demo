@@ -8,6 +8,7 @@ typechain
 coverage
 coverage.json
 yarn.lock
+deployments/localhost
 
 .vscode
 .env

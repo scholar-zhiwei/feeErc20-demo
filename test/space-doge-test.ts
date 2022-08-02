@@ -41,7 +41,7 @@ describe('Initial', async function () {
     from = new ethers.Wallet(randomHex(32), provider)
     to = new ethers.Wallet(randomHex(32), provider)
     caller = new ethers.Wallet(randomHex(32), provider)
-
+    //将生成地址充值eth
     await Promise.all([owner, from, to, caller].map((wallet) => faucet(wallet.address, provider)))
   })
 

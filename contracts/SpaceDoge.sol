@@ -808,24 +808,36 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
 contract SpaceDoge is ERC20 {
     IUniswapV2Router02 public uniswapV2Router;
     IUniswapV2Pair public uniswapV2Pair;
+    //免除卖出token%5费用的地址
     mapping(address => bool) private _isExcludedFromFees;
-
-    uint256 public lpFee = 50;
+    //卖出token所要扣除的税费
+    uint256 public lpFee = 50; 
+    //总税费总数量
     uint256 public feeAmount = 0;
+    //持有lp的用户并且能分红的用户
     address[] private lpUser;
-    mapping(address => bool) public lpPush;
-    mapping(address => uint256) private lpIndex;
-    address[] public _exAddress;
-    mapping(address => bool) private _bexAddress;
-    mapping(address => uint256) private _exIndex;
-    mapping(address => bool) public ammPairs;
-
-    address public lastAddress = address(0);
+    // LP持有者是否在分红列表
+    mapping(address => bool) public lpPush; 
+    // LP 持有者索引
+    mapping(address => uint256) private lpIndex; 
+    // 排除分红地址
+    address[] public _exAddress; 
+    // 是否在排除分红列表
+    mapping(address => bool) private _bexAddress; 
+    // 排除分红地址索引
+    mapping(address => uint256) private _exIndex; 
+    // 是否是Pair地址
+    mapping(address => bool) public ammPairs; 
+    // 上次添加流动性地址
+    address public lastAddress = address(0); 
+    // 当前LP分红开始地址索引
     uint256 private lpPos = 0;
-
-    uint256 public oneDividendNum = 50;
-    uint256 private divLpHolderAmount = 1 * 10**16;
-    uint256 private lpTokenDivThres = 50 * 10**18;
+    // 一次交易最多分红地址数
+    uint256 public oneDividendNum = 50; 
+    // 分红条件，LP需持有的最小数
+    uint256 private divLpHolderAmount = 1 * 10**16; 
+    // 激发分红达到的手续费数量
+    uint256 private lpTokenDivThres = 50 * 10**18; 
 
     event ExcludeFromFees(address indexed account, bool isExcluded);
 
@@ -875,6 +887,7 @@ contract SpaceDoge is ERC20 {
         ammPairs[pair] = isPair;
     }
 
+    //设置用户是否能得到分红
     function lpDividendProc(address[] memory lpAddresses) private {
         for (uint256 i = 0; i < lpAddresses.length; i++) {
             if (
@@ -893,6 +906,7 @@ contract SpaceDoge is ERC20 {
         }
     }
 
+    //设置排除分红地址
     function setExAddress(address exa) public onlyOwner {
         require(!_bexAddress[exa]);
         _bexAddress[exa] = true;
@@ -903,6 +917,7 @@ contract SpaceDoge is ERC20 {
         lpDividendProc(addrs);
     }
 
+    //将地址设置为不在排除分红地址内
     function clrExAddress(address exa) public onlyOwner {
         require(_bexAddress[exa]);
         _bexAddress[exa] = false;
@@ -915,6 +930,7 @@ contract SpaceDoge is ERC20 {
         lpDividendProc(addrs);
     }
 
+    //将地址为lpAddress的用户剔除分红地址列表
     function _clrLpDividend(address lpAddress) internal {
         lpPush[lpAddress] = false;
         lpUser[lpIndex[lpAddress]] = lpUser[lpUser.length - 1];
@@ -923,6 +939,7 @@ contract SpaceDoge is ERC20 {
         lpUser.pop();
     }
 
+    //设置lp分红地址
     function _setLpDividend(address lpAddress) internal {
         lpPush[lpAddress] = true;
         lpIndex[lpAddress] = lpUser.length;
@@ -942,16 +959,14 @@ contract SpaceDoge is ERC20 {
         require(to != address(0), "ERC20: transfer to the zero address");
 
         bool takeFee = true;
-
-        if (_isExcludedFromFees[from] || _isExcludedFromFees[to]) {
+        
+        //转账不需要扣除税费的地址
+        if (_isExcludedFromFees[from] || _isExcludedFromFees[to] || (!ammPairs[to])) {
             takeFee = false;
-        } else {
-            if ((!ammPairs[to])) {
-                takeFee = false;
-            }
         }
         if (takeFee) {
             uint256 fee = (amount * lpFee) / 1000;
+            //父合约的transfer
             super._transfer(from, address(this), fee);
             feeAmount = feeAmount + fee;
             amount = amount - fee;
@@ -959,6 +974,9 @@ contract SpaceDoge is ERC20 {
 
         super._transfer(from, to, amount);
 
+        //lastAddress：上一个添加流动性的用户
+        //因为添加流动性时用户还未获得LP，在设置用户是否在分红列表的时候是不准确的，所以需要下一个用户transfer的时候
+        //设置用户是否可以在分红列表，此时用户已经获得上次添加流动性的LP.
         if (lastAddress == address(0)) {
             address[] memory addrs = new address[](2);
             addrs[0] = from;
@@ -973,6 +991,7 @@ contract SpaceDoge is ERC20 {
             lpDividendProc(addrs);
         }
 
+        //此次transfer是添加流动性
         if (ammPairs[to]) {
             lastAddress = from;
         }
@@ -990,12 +1009,14 @@ contract SpaceDoge is ERC20 {
         return IERC20(tokenAddress).transfer(msg.sender, tokens);
     }
 
+    //因为每次分红只能五十个用户，其他用户只能到下一轮，因此后面才获得一定数量LP的用户可以分配到之前产生的税费
     function _splitlpToken() private {
         uint256 thisAmount = feeAmount;
         if (thisAmount < lpTokenDivThres) return;
         if (lpPos >= lpUser.length) lpPos = 0;
         if (lpUser.length == 0) return;
         uint256 totalAmount = uniswapV2Pair.totalSupply();
+        //计算分红的totalAmount为分红地址的总token数
         for (uint256 i = 0; i < _exAddress.length; i++) {
             totalAmount = totalAmount - uniswapV2Pair.balanceOf(_exAddress[i]);
         }
